@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Payment </title>
+    <title>NPR Payment Gateway</title>
     <script src="https://js.stripe.com/v3/"></script>
     <style>
         :root {
@@ -36,7 +35,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             transition: background-color 0.3s, color 0.3s;
         }
@@ -65,7 +64,8 @@
             margin-bottom: 0.5rem;
         }
 
-        input {
+        input[type="number"],
+        input[type="tel"] {
             padding: 0.5rem;
             margin-bottom: 1rem;
             border: 1px solid var(--input-border);
@@ -117,13 +117,8 @@
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .theme-toggle {
@@ -175,16 +170,38 @@
             border-radius: 50%;
         }
 
-        input:checked+.slider {
+        input:checked + .slider {
             background-color: #2196F3;
         }
 
-        input:checked+.slider:before {
+        input:checked + .slider:before {
             transform: translateX(26px);
+        }
+
+        .payment-options {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 1rem;
+        }
+
+        .payment-option {
+            display: flex;
+            align-items: center;
+        }
+
+        .payment-option input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+
+        .payment-fields {
+            display: none;
+        }
+
+        .payment-fields.active {
+            display: block;
         }
     </style>
 </head>
-
 <body>
     <div class="theme-toggle">
         <label for="theme-switch">Dark Mode</label>
@@ -194,12 +211,31 @@
         </label>
     </div>
     <div class="container">
-        <h1> Payment</h1>
+        <h1>NPR Payment Gateway</h1>
         <form id="payment-form">
             <label for="amount">Amount (NPR)</label>
-            <input type="number" id="amount" placeholder="Enter amount" required min="1" step="0.01">
-            <label for="card-element">Credit or debit card</label>
-            <div id="card-element"></div>
+            <input type="number" id="amount" placeholder="Enter amount in NPR" required min="1" step="1">
+            
+            <div class="payment-options">
+                <div class="payment-option">
+                    <input type="radio" id="phone-option" name="payment-method" value="phone" checked>
+                    <label for="phone-option">Phone Number</label>
+                </div>
+                <div class="payment-option">
+                    <input type="radio" id="card-option" name="payment-method" value="card">
+                    <label for="card-option">Credit or debit card</label>
+                </div>
+            </div>
+
+            <div id="phone-fields" class="payment-fields active">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" placeholder="Enter phone number" pattern="[0-9]{10}">
+            </div>
+
+            <div id="card-fields" class="payment-fields">
+                <div id="card-element"></div>
+            </div>
+            
             <button type="submit" id="submit-button">
                 <span id="button-text">Pay Now</span>
                 <div class="spinner" id="spinner"></div>
@@ -221,6 +257,25 @@
             }
             updateCardElementStyle();
         });
+
+        // Payment method toggle
+        const phoneOption = document.getElementById('phone-option');
+        const cardOption = document.getElementById('card-option');
+        const phoneFields = document.getElementById('phone-fields');
+        const cardFields = document.getElementById('card-fields');
+
+        function togglePaymentFields() {
+            if (phoneOption.checked) {
+                phoneFields.classList.add('active');
+                cardFields.classList.remove('active');
+            } else {
+                phoneFields.classList.remove('active');
+                cardFields.classList.add('active');
+            }
+        }
+
+        phoneOption.addEventListener('change', togglePaymentFields);
+        cardOption.addEventListener('change', togglePaymentFields);
 
         // Stripe integration
         const stripe = Stripe('YOUR_STRIPE_PUBLISHABLE_KEY');
@@ -255,13 +310,14 @@
         }
 
         function updateCardElementStyle() {
-            cardElement.update({ style: getCardElementStyle() });
+            cardElement.update({style: getCardElementStyle()});
         }
 
         initializeStripe();
 
         const form = document.getElementById('payment-form');
         const amountInput = document.getElementById('amount');
+        const phoneInput = document.getElementById('phone');
         const submitButton = document.getElementById('submit-button');
         const spinner = document.getElementById('spinner');
         const buttonText = document.getElementById('button-text');
@@ -271,26 +327,31 @@
             event.preventDefault();
             setLoading(true);
 
-            const amount = parseFloat(amountInput.value) * 100; // Convert to cents
+            const amount = parseFloat(amountInput.value);
+            const isPhonePayment = phoneOption.checked;
 
             try {
-                // In a real application, you would make an API call to your server here
-                // to create a PaymentIntent and get the client secret
-                const clientSecret = await getClientSecret(amount);
-
-                const result = await stripe.confirmCardPayment(clientSecret, {
-                    payment_method: {
-                        card: cardElement,
-                    }
-                });
-
-                if (result.error) {
-                    showError(result.error.message);
+                if (isPhonePayment) {
+                    const phone = phoneInput.value;
+                    // Handle phone payment logic here
+                    console.log(`Processing phone payment: ${amount} NPR to ${phone}`);
+                    // Simulate successful payment
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    showSuccess('Phone payment successful!');
                 } else {
-                    // Payment successful
-                    errorMessage.textContent = 'Payment successful!';
-                    errorMessage.style.color = '#4CAF50';
-                    form.reset();
+                    // Handle card payment logic here
+                    const clientSecret = await getClientSecret(amount);
+                    const result = await stripe.confirmCardPayment(clientSecret, {
+                        payment_method: {
+                            card: cardElement,
+                        }
+                    });
+
+                    if (result.error) {
+                        showError(result.error.message);
+                    } else {
+                        showSuccess('Card payment successful!');
+                    }
                 }
             } catch (error) {
                 showError('An unexpected error occurred.');
@@ -313,6 +374,13 @@
 
         function showError(message) {
             errorMessage.textContent = message;
+            errorMessage.style.color = 'var(--error-color)';
+        }
+
+        function showSuccess(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.color = '#4CAF50';
+            form.reset();
         }
 
         // This function simulates getting a client secret from your server
@@ -325,5 +393,4 @@
         }
     </script>
 </body>
-
 </html>
